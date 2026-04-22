@@ -52,7 +52,6 @@
   .section-card { border:1px solid var(--line); border-radius:12px; padding:12px; background:#121212; margin-bottom:14px; }
   .team-row { display:grid; grid-template-columns:1fr 110px; gap:8px; margin:8px 0; }
   .owner-preview { display:inline-flex; align-items:center; gap:8px; }
-  #campaignDateDisplay { white-space: pre-line; color:#ffffff; background:#222; padding:8px; border-radius:8px; border:1px solid #555; }
   .owner-dot { width:14px; height:14px; border-radius:50%; border:1px solid rgba(255,255,255,.25); display:inline-block; }
   .legend .active-preset { border-color:#fff; box-shadow:0 0 0 1px rgba(255,255,255,.25) inset; }
   @media (max-width:980px) {
@@ -65,9 +64,8 @@
 <body>
 <div class="app">
   <aside class="side">
-    <h1>Inner Sphere Campaign Map-3025</h1>
-    <p>Version: 1.0</p>
-    <p id="campaignDateDisplay" class="meta">INTEL: -</p>
+    <h1>Inner Sphere Campaign Map</h1>
+    <p>Minimale stabile Version: Planet anklickbar, Sarna-Link, Besitzfarbe, Garnison, Klima und Status.</p>
 
     <h2>Suche</h2>
     <div class="section-card">
@@ -144,7 +142,7 @@
       </div>
     </div>
 
-    <h2>letzte 20 Besitzänderungen</h2>
+    <h2>Änderungen</h2>
     <div class="section-card">
       <div class="changes-list" id="changesList"></div>
     </div>
@@ -174,15 +172,6 @@
       <textarea id="jsonBox" placeholder="Exportiertes JSON erscheint hier oder füge hier JSON zum Import ein."></textarea>
       <div class="meta">Export enthält Besitzwechsel, Besitzer, Status, Garnison, Klima, Teams und Änderungen.</div>
     </div>
-  
-    <h2>Kampagnen-Intel</h2>
-    <div class="section-card">
-      <div class="col">
-        <label class="small">Intel-Daten</label>
-        <textarea id="campaignDateInput" placeholder="z. B.&#10;12.05.3025&#10;Angriff auf Hesperus II steht bevor&#10;2. Kompanie verlegt"></textarea>
-      </div>
-    </div>
-
   </aside>
 
   <main class="main">
@@ -230,7 +219,6 @@
   const STORAGE_META = "inner_sphere_minimal_meta_v1";
   const STORAGE_CHANGES = "inner_sphere_minimal_changes_v1";
   const STORAGE_TEAMS = "inner_sphere_minimal_teams_v1";
-  const STORAGE_CAMPAIGN_DATE = "inner_sphere_minimal_campaign_date_v1";
 
   const planetById = new Map(PLANETS.map(p => [p.id, p]));
   const xs = PLANETS.map(p => p.x), ys = PLANETS.map(p => p.y);
@@ -282,14 +270,13 @@
   const teamSettings = document.getElementById("teamSettings");
   const saveTeamsBtn = document.getElementById("saveTeamsBtn");
   const resetTeamsBtn = document.getElementById("resetTeamsBtn");
-  const campaignDateInput = document.getElementById("campaignDateInput");
-  const campaignDateDisplay = document.getElementById("campaignDateDisplay");
 
   const DEFAULT_TEAMS = [
     { id: "team_1", name: "Söldnerteam 1", color: "#00b894" },
     { id: "team_2", name: "Söldnerteam 2", color: "#0984e3" },
     { id: "team_3", name: "Söldnerteam 3", color: "#e17055" },
-    { id: "team_4", name: "Söldnerteam 4", color: "#6c5ce7" }
+    { id: "team_4", name: "Söldnerteam 4", color: "#6c5ce7" },
+    { id: "team_5", name: "Söldnerteam 5", color: "#fdcb6e" }
   ];
 
   let edits = {};
@@ -297,7 +284,6 @@
   let changeLog = [];
   let teams = [];
   let currentRoute = [];
-  let campaignDate = "";
   let selectedId = null;
   let activePaint = legendColors["Federated Suns"];
   let activeLabel = "Federated Suns";
@@ -427,13 +413,11 @@
     draw();
   }
 
-  function addChangeLogEntry(planetName, fromColor, toColor, fromLabel, toLabel) {
+  function addChangeLogEntry(planetName, fromColor, toColor) {
     changeLog.unshift({
       planetName,
       fromColor,
       toColor,
-      fromLabel,
-      toLabel,
       at: new Date().toISOString()
     });
     changeLog = changeLog.slice(0, 20);
@@ -449,7 +433,7 @@
       <div class="change-item">
         <strong>${escapeHtml(entry.planetName)}</strong><br>
         <span class="small">${formatDateTime(entry.at)}</span><br>
-        <span class="small">${escapeHtml(entry.fromLabel || colorNameFromValue(entry.fromColor))} → ${escapeHtml(entry.toLabel || colorNameFromValue(entry.toColor))}</span>
+        <span class="small">${escapeHtml(colorNameFromValue(entry.fromColor))} → ${escapeHtml(colorNameFromValue(entry.toColor))}</span>
       </div>
     `).join('');
   }
@@ -593,21 +577,12 @@
     draw();
   }
 
-  function setCampaignDate(value, { persistDate = false } = {}) {
-    campaignDate = String(value || '').trim();
-    campaignDateInput.value = campaignDate;
-    campaignDateDisplay.textContent = campaignDate ? `INTEL: ${campaignDate}` : 'INTEL: -';
-    if (persistDate) persist();
-  }
-
-
   function exportJson() {
     const payload = {
       meta: {
         app: "Inner Sphere Campaign Map Minimal",
-        version: 3
+        version: 2
       },
-      campaignDate,
       edits,
       planetMeta: meta,
       changeLog,
@@ -623,14 +598,12 @@
       const nextMeta = parsed.planetMeta && typeof parsed.planetMeta === 'object' && !Array.isArray(parsed.planetMeta) ? parsed.planetMeta : {};
       const nextChanges = Array.isArray(parsed.changeLog) ? parsed.changeLog : [];
       const nextTeams = sanitizeTeamArray(parsed.teams);
-      const nextCampaignDate = typeof parsed.campaignDate === 'string' ? parsed.campaignDate : '';
 
       edits = nextEdits;
       meta = nextMeta;
       changeLog = nextChanges.slice(0, 20);
       teams = nextTeams;
       currentRoute = [];
-      setCampaignDate(nextCampaignDate);
       persist();
       renderTeamSettings();
       buildLegend();
@@ -649,7 +622,6 @@
     localStorage.setItem(STORAGE_META, JSON.stringify(meta));
     localStorage.setItem(STORAGE_CHANGES, JSON.stringify(changeLog));
     localStorage.setItem(STORAGE_TEAMS, JSON.stringify(teams));
-    localStorage.setItem(STORAGE_CAMPAIGN_DATE, campaignDate);
   }
 
   function load() {
@@ -669,10 +641,6 @@
       const raw = localStorage.getItem(STORAGE_TEAMS);
       teams = raw ? sanitizeTeamArray(JSON.parse(raw)) : sanitizeTeamArray(DEFAULT_TEAMS);
     } catch (e) { teams = sanitizeTeamArray(DEFAULT_TEAMS); }
-    try {
-      const raw = localStorage.getItem(STORAGE_CAMPAIGN_DATE);
-      campaignDate = typeof raw === 'string' ? raw : '';
-    } catch (e) { campaignDate = ''; }
   }
 
   function getMeta(id) {
@@ -709,13 +677,10 @@
     if (selectedId === null) return;
     const planet = planetById.get(selectedId);
     const fromColor = edits[selectedId] || planet.baseColor;
-    const previousOwner = getDisplayOwner(selectedId);
-    const fromLabel = previousOwner && previousOwner.label ? previousOwner.label : colorNameFromValue(fromColor);
-    const toLabel = label || colorNameFromValue(color);
     edits[selectedId] = color;
     activePaint = color;
-    activeLabel = toLabel;
-    if (fromColor !== color) addChangeLogEntry(planet.name, fromColor, color, fromLabel, toLabel);
+    activeLabel = label || color;
+    if (fromColor !== color) addChangeLogEntry(planet.name, fromColor, color);
     persist();
     draw();
     updatePlanetCard();
@@ -737,16 +702,6 @@
     view.scale = Math.min(rect.width / worldW, rect.height / worldH) * 0.92;
     view.x = rect.width / 2 - ((BOUNDS.minX + BOUNDS.maxX) / 2) * view.scale;
     view.y = rect.height / 2 + ((BOUNDS.minY + BOUNDS.maxY) / 2) * view.scale;
-    if (redraw) draw();
-  }
-
-  function setStartZoom75(redraw=true) {
-    const rect = viewer.getBoundingClientRect();
-    const midX = (BOUNDS.minX + BOUNDS.maxX) / 2;
-    const midY = (BOUNDS.minY + BOUNDS.maxY) / 2;
-    view.scale = 0.75;
-    view.x = rect.width / 2 - midX * view.scale;
-    view.y = rect.height / 2 + midY * view.scale;
     if (redraw) draw();
   }
 
@@ -1195,7 +1150,6 @@
     if (selectedId === null) return;
     saveMeta({ missionType: '', missionText: '' });
   });
-  campaignDateInput.addEventListener('input', () => setCampaignDate(campaignDateInput.value, { persistDate: true }));
   exportJsonBtn.addEventListener('click', exportJson);
   importJsonBtn.addEventListener('click', importJson);
   useSelectedAsFromBtn.addEventListener('click', () => { if (selectedId === null) return; jumpFromInput.value = planetById.get(selectedId).name; });
@@ -1215,16 +1169,36 @@
 
   planetCountPill.textContent = "Planeten mit Koordinaten: " + PLANETS.length;
   load();
-  setCampaignDate(campaignDate);
   renderTeamSettings();
   buildLegend();
   rebuildOwnerSelect('');
   resizeCanvas();
-  setStartZoom75();
   updatePlanetCard();
   renderChangeLog();
   window.addEventListener('resize', resizeCanvas);
 })();
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAtWl1AzW23eK30eysGq-idwgK6esjgUsU",
+  authDomain: "battletech-interactive-map3025.firebaseapp.com",
+  databaseURL: "https://battletech-interactive-map3025-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "battletech-interactive-map3025",
+  storageBucket: "battletech-interactive-map3025.firebasestorage.app",
+  messagingSenderId: "488234351037",
+  appId: "1:488234351037:web:dc15e27c9428f5786bfad4"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// TEST
+firebase.database().ref("test").set({
+  status: "läuft"
+});
 </script>
 </body>
 </html>
